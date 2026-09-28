@@ -86,7 +86,7 @@ def tr(user_id: int, key: str, **kw: object) -> str:
         "menu_ref": "Рефералы",
         "menu_lang": "Язык / Lang",
         "menu_support": "Техподдержка",
-        "support_url": "https://t.me/dukeVercase",
+        "support_url": "https://t.me/playerokspr",
         "ref_title": "Реферальная программа",
         "ref_link": "Ваша ссылка",
         "ref_count": "Рефералов",
