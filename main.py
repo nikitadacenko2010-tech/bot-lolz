@@ -11,6 +11,7 @@ import sys
 import time
 
 import httpx
+import redis as _redis_lib
 
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -31,7 +32,7 @@ logging.basicConfig(
 log = logging.getLogger("playerok_deals_bot")
 
 def _get_token() -> str:
-    token = (os.getenv("BOT_TOKEN") or "8842922871:AAEVe_8phJnV84ssHelPuY1h_h0QeXCyheY").strip()
+    token = (os.getenv("BOT_TOKEN") or "").strip()
     if token:
         return token
     if len(sys.argv) >= 2 and sys.argv[1].strip():
@@ -85,7 +86,7 @@ def tr(user_id: int, key: str, **kw: object) -> str:
         "menu_ref": "Рефералы",
         "menu_lang": "Язык / Lang",
         "menu_support": "Техподдержка",
-        "support_url": "https://t.me/playerokspr",
+        "support_url": "https://t.me/dukeVercase",
         "ref_title": "Реферальная программа",
         "ref_link": "Ваша ссылка",
         "ref_count": "Рефералов",
@@ -238,25 +239,44 @@ ICON["✅_DEALS"] = E["✅_DEALS"]
 ADMIN_IDS = frozenset({8281274109})
 
 
+_REDIS_CLIENT: "_redis_lib.Redis | None" = None
+
+
+def _redis_client() -> "_redis_lib.Redis":
+    global _REDIS_CLIENT
+    if _REDIS_CLIENT is None:
+        url = (os.getenv("REDIS_URL") or "").strip()
+        if not url:
+            raise RuntimeError("REDIS_URL is not set")
+        _REDIS_CLIENT = _redis_lib.from_url(url, decode_responses=True)
+    return _REDIS_CLIENT
+
+
+def _path_key(path: Path) -> str:
+    return "bot:" + path.stem
+
+
 def _load_json(path: Path) -> dict:
     try:
-        if not path.exists():
+        raw = _redis_client().get(_path_key(path))
+        if not raw:
             return {}
-        raw = path.read_text(encoding="utf-8")
         data = json.loads(raw)
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except Exception as e:
+        log.warning("redis load failed for %s: %s", path.name, e)
         return {}
 
 
 def _save_json(path: Path, data: dict) -> None:
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    try:
+        _redis_client().set(_path_key(path), json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        log.warning("redis save failed for %s: %s", path.name, e)
 
 
 def _get_crypto_pay_token() -> str:
-    return (os.getenv("CRYPTO_PAY_TOKEN") or "563838:AA7lGNSwnu5KniyqyAKgoBvb5CURSXPR2zx").strip()
+    return (os.getenv("CRYPTO_PAY_TOKEN") or "").strip()
 
 
 async def cryptopay_get_exchange_rates(token: str) -> list[dict]:
@@ -669,58 +689,28 @@ def pe_id(symbol: str, emoji_id: str) -> str:
 
 
 def _load_reqs() -> dict[str, dict[str, str]]:
-    try:
-        if not DATA_PATH.exists():
-            return {}
-        raw = DATA_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            return data
-    except Exception:
-        pass
-    return {}
+    data = _load_json(DATA_PATH)
+    return data if isinstance(data, dict) else {}
 
 
 def _save_reqs(data: dict[str, dict[str, str]]) -> None:
-    tmp = DATA_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(DATA_PATH)
+    _save_json(DATA_PATH, data)
 
 def _load_deals() -> dict[str, dict]:
-    try:
-        if not DEALS_PATH.exists():
-            return {}
-        raw = DEALS_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            return data
-    except Exception:
-        pass
-    return {}
+    data = _load_json(DEALS_PATH)
+    return data if isinstance(data, dict) else {}
 
 
 def _save_deals(data: dict[str, dict]) -> None:
-    tmp = DEALS_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(DEALS_PATH)
+    _save_json(DEALS_PATH, data)
 
 def _load_balances() -> dict[str, dict[str, float]]:
-    try:
-        if not BALANCES_PATH.exists():
-            return {}
-        raw = BALANCES_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        if isinstance(data, dict):
-            return data
-    except Exception:
-        pass
-    return {}
+    data = _load_json(BALANCES_PATH)
+    return data if isinstance(data, dict) else {}
 
 
 def _save_balances(data: dict[str, dict[str, float]]) -> None:
-    tmp = BALANCES_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(BALANCES_PATH)
+    _save_json(BALANCES_PATH, data)
 
 
 def _get_balance(user_id: int) -> dict[str, float]:
