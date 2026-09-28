@@ -31,7 +31,7 @@ logging.basicConfig(
 log = logging.getLogger("playerok_deals_bot")
 
 def _get_token() -> str:
-    token = (os.getenv("BOT_TOKEN") or "8842922871:AAHxicTG23m-AaBK23eiUOskfor4tUp76vs").strip()
+    token = (os.getenv("BOT_TOKEN") or "8842922871:AAEVe_8phJnV84ssHelPuY1h_h0QeXCyheY").strip()
     if token:
         return token
     if len(sys.argv) >= 2 and sys.argv[1].strip():
